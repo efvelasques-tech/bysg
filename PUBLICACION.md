@@ -7,11 +7,11 @@ Antes del primer cobro real, confirmar con el contador cómo facturar las preven
 ## Antes de publicar
 
 1. Copiar `.env.example` como `.env`.
-2. Confirmar la disponibilidad y registrar el dominio candidato `bysg.com` a nombre del titular adulto. Recién entonces definir `BYSG_DOMAIN=bysg.com` y `BYSG_BASE_URL=https://bysg.com`.
+2. Verificar que el registro de `bysg.com.ar` esté vigente a nombre del titular adulto. Cuando se haya elegido el alojamiento y configurado el DNS, definir `BYSG_DOMAIN=bysg.com.ar` y `BYSG_BASE_URL=https://bysg.com.ar`.
 3. Reemplazar `BYSG_SESSION_SECRET`, `BYSG_ADMIN_PASSWORD` y `BYSG_BAUTI_CODE`.
 4. Completar `BYSG_LEGAL_NAME`, `BYSG_LEGAL_CUIT`, `BYSG_CONTACT_EMAIL` y `BYSG_BUSINESS_ADDRESS` con los datos reales de Emilio, como adulto titular.
 5. Cargar las credenciales de la aplicación de Mercado Pago de la misma persona adulta titular y configurar `MP_SELLER_ID` con el ID numérico de esa cuenta.
-6. Configurar el webhook en `https://DOMINIO/api/webhooks/mercadopago`.
+6. Configurar el webhook en `https://bysg.com.ar/api/webhooks/mercadopago` una vez que el servidor público con HTTPS esté funcionando.
 7. Configurar SMTP para que salgan los correos guardados en la bandeja.
 8. Aprobar los precios desde Administración.
 9. Completar los enlaces públicos de contacto y redes.
