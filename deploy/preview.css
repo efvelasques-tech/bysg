@@ -1,0 +1,11 @@
+.preview-banner{position:sticky;top:0;z-index:1000;padding:11px 20px;background:#f0d85d;color:#161414;text-align:center;font:800 14px/1.4 system-ui,sans-serif;letter-spacing:.03em}
+body:has(#app) .layout{display:block}
+body:has(#app) .side,
+body:has(#app) #quickSearch,
+body:has(#app) #backOffice,
+body:has(#app) #openCart,
+body:has(#app) #clubForm,
+body:has(#app) #useCatalogProduct,
+body:has(#app) #addDetailToCart,
+body:has(#app) #cartCheckout{display:none!important}
+.preview-form-notice{padding:16px;border-radius:10px;background:#fff3c4;color:#302800;font-weight:700}
