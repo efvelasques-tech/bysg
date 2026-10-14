@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Finalizar pedido · BYSG</title>
+  <link rel="stylesheet" href="sistema.css">
+</head>
+<body>
+  <header class="topbar"><div class="shell">
+    <a class="brand" href="index.html"><img src="assets/branding/gato-logo.png" alt="Logo BYSG"><span>BAUTI Y SUS GATOS<small>PREVENTA SEGURA</small></span></a>
+    <a class="button-secondary" href="index.html">← Volver al catálogo</a>
+  </div></header>
+  <main class="shell">
+    <div class="eyebrow">PASO 1 DE 2</div>
+    <h1>Confirmá tu pedido</h1>
+    <p class="lead" id="checkoutLead">Los datos del pedido y del pago deben ser completados por una persona adulta responsable.</p>
+    <div id="message" class="notice danger hidden" role="alert"></div>
+    <div id="checkoutGuard" class="notice danger hidden" role="alert"></div>
+    <div class="grid two section">
+      <section class="card">
+        <h2>Datos del adulto responsable</h2>
+        <form id="checkoutForm" class="form-grid">
+          <div class="field full"><label for="name">Nombre y apellido</label><input id="name" name="name" autocomplete="name" maxlength="120" required></div>
+          <div class="field"><label for="email">Correo electrónico</label><input id="email" name="email" type="email" autocomplete="email" maxlength="160" required></div>
+          <div class="field"><label for="phone">Teléfono</label><input id="phone" name="phone" autocomplete="tel" maxlength="50" required></div>
+          <div class="field full"><label for="delivery">Forma de entrega</label><select id="delivery" name="delivery" required><option value="pickup">Retiro coordinado</option><option value="home_delivery">Entrega a domicilio</option><option value="mercado_envios">Mercado Envíos</option><option value="correo_argentino">Correo Argentino</option><option value="courier">Courier a coordinar</option><option value="international_key_west">Envío internacional a Key West — courier pendiente</option></select><small id="deliveryHelp">Las formas de entrega disponibles se verificarán al cargar el pedido.</small></div>
+          <div class="field full hidden" id="addressField"><label for="address" id="addressLabel">Dirección de entrega</label><input id="address" name="address" autocomplete="street-address" maxlength="300"><small id="deliveryNotice">El costo y el operador se confirmarán antes del despacho.</small></div>
+          <div class="field full"><label for="notes">Notas del pedido</label><textarea id="notes" name="notes" maxlength="500" placeholder="Observaciones o aclaraciones para el pedido"></textarea></div>
+          <div class="field full"><label><input id="terms" type="checkbox" required> Confirmo que revisé los datos y acepto los <a href="terminos.html" target="_blank">términos de compra</a> y la <a href="privacidad.html" target="_blank">política de privacidad</a>.</label></div>
+          <div class="field full"><button class="button" id="submitButton" type="submit" disabled>Crear pedido y continuar</button></div>
+        </form>
+      </section>
+      <aside class="card">
+        <h2>Tu pedido</h2>
+        <div id="items" class="items"></div>
+        <div class="totals">
+          <div class="total-row"><span>Productos</span><strong id="subtotal">—</strong></div>
+          <div class="total-row"><span>Entrega</span><strong id="shipping">—</strong></div>
+          <div class="total-row grand"><span id="totalLabel">Total</span><strong id="total">—</strong></div>
+        </div>
+        <div class="notice info section">Los cupos quedan reservados al crear el pedido. Si el pago se rechaza, el sistema los repone automáticamente.</div>
+      </aside>
+    </div>
+  </main>
+  <footer class="footer">BYSG · Compra segura a cargo de una persona adulta</footer>
+  <script src="sistema.js"></script>
+  <script>
+  (()=>{
+    const {api,money,escapeHtml,setMessage}=BYSG;
+    const form=document.getElementById('checkoutForm'),message=document.getElementById('message'),guard=document.getElementById('checkoutGuard'),delivery=document.getElementById('delivery'),button=document.getElementById('submitButton');
+    const rawCart=(()=>{try{const saved=JSON.parse(localStorage.getItem('bysg-cart-v6')||'[]');return Array.isArray(saved)?saved:[]}catch{return []}})();
+    let catalog=null,health=null,lines=[],submitting=false,loadFailed=false;
+    const attemptKey='bysg-checkout-attempt-v1';
+    let pendingAttempt=(()=>{try{return JSON.parse(sessionStorage.getItem(attemptKey)||'null')}catch{return null}})();
+    const typeCode={Remeras:'REM',Buzos:'BUZ',Gorras:'GOR'};
+    const realPayment=()=>health?.payment_mode==='mercado_pago'&&!health.sandbox;
+    function buildPayload(){
+      const data=new FormData(form);
+      return {customer:{name:data.get('name'),email:data.get('email'),phone:data.get('phone')},delivery_method:data.get('delivery'),delivery_address:data.get('address')||'',notes:data.get('notes')||'',items:lines.map(line=>({variant_id:line.product.variant_id,size_label:line.size,quantity:line.quantity}))};
+    }
+    const sameAttempt=()=>pendingAttempt&&pendingAttempt.paymentMode===health?.payment_mode&&pendingAttempt.payload===JSON.stringify(buildPayload());
+    function stockIssue(){
+      if(!Array.isArray(catalog.stock))return 'No se pudo verificar el cupo disponible. Recargá la página antes de continuar.';
+      const requested=new Map();
+      for(const line of lines)requested.set(line.product.category_code,(requested.get(line.product.category_code)||0)+line.quantity);
+      for(const [code,quantity] of requested){
+        const stock=catalog.stock.find(row=>row.code===code),available=Number(stock?.available);
+        if(!stock||!Number.isInteger(available)||available<0)return 'No se pudo verificar el cupo disponible. Recargá la página antes de continuar.';
+        if(quantity>available)return `Solo quedan ${available} cupos de ${stock.name.toLowerCase()}. Volvé al catálogo y ajustá el carrito.`;
+      }
+      return '';
+    }
+    function blockReason(){
+      if(loadFailed||!catalog||!health)return 'No se pudo verificar la configuración de la tienda. Recargá la página antes de continuar.';
+      if(!['mock','mercado_pago_prueba','mercado_pago'].includes(health.payment_mode))return 'El modo de pago no está disponible. Revisá la configuración antes de continuar.';
+      if(!lines.length||lines.length!==rawCart.length)return 'El carrito está vacío o contiene un producto no disponible. Volvé al catálogo y revisalo.';
+      if(pendingAttempt&&!sameAttempt())return 'Ya hay un pedido en trámite con otros datos. Restaurá los datos originales para consultar ese mismo intento antes de comenzar otro.';
+      const retry=Boolean(sameAttempt());
+      // Exact retries may find less available stock because this same order
+      // already reserved it. The server still checks the request ID and body.
+      if(!retry){const unavailable=stockIssue();if(unavailable)return unavailable;}
+      if(!retry&&health.sandbox&&!health.payments_configured)return 'Primero conectá las credenciales de prueba en la pantalla local de pagos.';
+      if(!retry&&realPayment()&&!health.real_payments_enabled)return 'Los cobros reales todavía no están habilitados. La tienda permanece en prueba.';
+      if(!retry&&realPayment()&&lines.some(line=>Boolean(line.product.is_sample_price)||Number(line.product.price_cents)<=0))return 'Este pedido incluye precios de muestra. No se puede cobrar hasta que se confirmen los precios finales.';
+      if(!retry&&catalog.shipping?.[delivery.value]==null)return 'Esta forma de entrega aún no tiene un costo definido. Elegí retiro coordinado u otra entrega con tarifa confirmada.';
+      return '';
+    }
+    function updateGuard(){
+      const reason=blockReason();guard.textContent=reason;guard.classList.toggle('hidden',!reason);
+      button.disabled=Boolean(reason)||submitting;
+    }
+    function buttonLabel(){return pendingAttempt?'Retomar el mismo pedido':health?.payment_mode==='mock'?'Crear pedido y probar pago':'Crear pedido y continuar a Mercado Pago'}
+    function updateDeliveryOptions(){
+      let pending=0;
+      for(const option of delivery.options){
+        const quote=catalog.shipping?.[option.value],unavailable=quote===null||quote===undefined;
+        option.dataset.label ||= option.textContent;
+        option.disabled=unavailable;
+        option.textContent=`${option.dataset.label}${unavailable?' — costo pendiente':''}`;
+        if(unavailable)pending++;
+      }
+      if(delivery.selectedOptions[0]?.disabled)delivery.value='pickup';
+      document.getElementById('deliveryHelp').textContent=pending?'Las opciones con costo pendiente se habilitarán cuando se confirme su tarifa.':'Elegí la forma de entrega que prefieras.';
+    }
+    function restoreAttempt(){
+      if(!pendingAttempt)return;
+      try{
+        const saved=JSON.parse(pendingAttempt.payload);
+        if(!saved.customer||!Array.isArray(saved.items)||health.sandbox&&saved.customer.email!==health.test_buyer_email)return;
+        for(const field of ['name','email','phone'])document.getElementById(field).value=saved.customer[field]||'';
+        delivery.value=saved.delivery_method||'pickup';
+        document.getElementById('address').value=saved.delivery_address||'';
+        document.getElementById('notes').value=saved.notes||'';
+      }catch{setMessage(message,'No pudimos restaurar el pedido en curso. No se creará otro pedido desde esta pantalla.');}
+    }
+    async function load(){
+      try{
+        const responses=await Promise.all([api('/api/catalog'),api('/api/health')]);catalog=responses[0];health=responses[1];
+        updateDeliveryOptions();
+        if(catalog.price_mode==='sample')document.getElementById('checkoutLead').textContent='Los importes continúan marcados como valores de muestra. Los datos deben ser completados por una persona adulta responsable.';
+        button.textContent=buttonLabel();
+        if(health.sandbox){
+          document.getElementById('checkoutLead').textContent='PRUEBA SIN DINERO REAL. Usá únicamente el comprador y las tarjetas de prueba de Mercado Pago. Los pedidos no afectan la tienda.';
+          document.getElementById('email').value=health.test_buyer_email||'';document.getElementById('email').readOnly=true;
+        }
+        lines=rawCart.map(line=>{
+          if(!line||typeof line!=='object')return null;
+          const code=typeCode[line.productType],design=Number(line.page),quantity=Number(line.qty);
+          if(!Number.isInteger(quantity)||quantity<1||quantity>10)return null;
+          const product=catalog.products.find(item=>item.category_code===code&&item.design_number===design);
+          return product?{...line,product,quantity}:null;
+        }).filter(Boolean);
+        restoreAttempt();
+        render();
+      }catch(error){loadFailed=true;setMessage(message,error.message);updateGuard()}
+    }
+    function render(){
+      document.getElementById('items').innerHTML=lines.map(line=>`<article class="item"><div><strong>${escapeHtml(line.product.category)} · ${escapeHtml(line.product.name)}</strong><small>${escapeHtml(line.product.sku)} · Talle ${escapeHtml(line.size)} · Cantidad ${line.quantity}</small></div><span class="money">${money(line.product.price_cents*line.quantity)}</span></article>`).join('')||'<p>No hay productos.</p>';
+      const subtotal=lines.reduce((sum,line)=>sum+line.product.price_cents*line.quantity,0),shippingQuote=catalog?.shipping?.[delivery.value],shippingPending=shippingQuote===null||shippingQuote===undefined,shipping=shippingPending?0:Number(shippingQuote)||0;
+      document.getElementById('subtotal').textContent=money(subtotal);document.getElementById('shipping').textContent=shippingPending?'A coordinar':shipping?money(shipping):'Sin cargo';document.getElementById('total').textContent=money(subtotal+shipping);document.getElementById('totalLabel').textContent=shippingPending?'Subtotal de prendas':'Total';
+      const needsAddress=delivery.value!=='pickup';document.getElementById('addressField').classList.toggle('hidden',!needsAddress);document.getElementById('address').required=needsAddress;
+      document.getElementById('addressLabel').textContent=delivery.value==='international_key_west'?'Dirección completa en Key West, Florida':'Dirección de entrega';document.getElementById('deliveryNotice').textContent=delivery.value==='international_key_west'?'Courier internacional y costo todavía pendientes de definir.':'El costo y el operador se confirmarán antes del despacho.';
+      updateGuard();
+    }
+    delivery.addEventListener('change',render);
+    form.addEventListener('input',updateGuard);
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();if(blockReason()) {updateGuard();return}
+      submitting=true;button.disabled=true;button.textContent='Creando pedido…';setMessage(message,'');
+      let posted=false;
+      try{
+        if(!sameAttempt()){
+          const latestStock=await api('/api/stock');catalog.stock=latestStock.stock;
+          const unavailable=stockIssue();if(unavailable)throw new Error(unavailable);
+        }
+        const payload=buildPayload(),serialized=JSON.stringify(payload);
+        if(!pendingAttempt){
+          if(!crypto.randomUUID)throw new Error('Este navegador no permite iniciar el pedido de forma segura. Actualizalo e intentá de nuevo.');
+          pendingAttempt={requestId:crypto.randomUUID(),paymentMode:health.payment_mode,payload:serialized};
+          sessionStorage.setItem(attemptKey,JSON.stringify(pendingAttempt));
+        }
+        posted=true;
+        const response=await fetch('/api/checkout/orders',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,client_request_id:pendingAttempt.requestId})});
+        let result={};try{result=await response.json()}catch{}
+        if(!response.ok){const failure=new Error(result.error||`Error ${response.status}`);failure.definitive=response.status===400;throw failure;}
+        if(!result.public_token)throw new Error('No se pudo confirmar el identificador del pedido. Reintentá con los mismos datos.');
+        localStorage.removeItem('bysg-cart-v6');
+        sessionStorage.removeItem(attemptKey);pendingAttempt=null;
+        location.href=result.checkout_url||`pago-pendiente.html?token=${encodeURIComponent(result.public_token)}`;
+      }catch(error){
+        if(error.definitive){sessionStorage.removeItem(attemptKey);pendingAttempt=null;}
+        submitting=false;setMessage(message,posted&&!error.definitive?'No pudimos confirmar el resultado. Reintentá con los mismos datos para consultar el mismo pedido.':error.message);button.textContent=buttonLabel();updateGuard();
+      }
+    });
+    load();
+  })();
+  </script>
+</body>
+</html>

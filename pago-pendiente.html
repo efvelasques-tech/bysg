@@ -1,0 +1,24 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pago pendiente · BYSG</title><link rel="stylesheet" href="sistema.css"></head><body>
+<header class="topbar"><div class="shell"><a class="brand" href="index.html"><img src="assets/branding/gato-logo.png" alt="Logo BYSG"><span>BAUTI Y SUS GATOS<small>PAGO EN REVISIÓN</small></span></a><a class="button-secondary" href="index.html">Volver a la tienda</a></div></header>
+<main class="shell"><section class="card status-hero"><div class="status-icon pending">…</div><div class="eyebrow">PAGO PENDIENTE</div><h1>Estamos esperando la confirmación</h1><p class="lead" style="margin-inline:auto">El cupo del pedido <strong data-order-number>—</strong> permanece reservado mientras verificamos su estado.</p><div id="message" class="notice danger hidden"></div><div id="orderDetail" class="card compact section" style="text-align:left"></div><div class="top-actions section" style="justify-content:center"><button class="button-secondary hidden" id="recoverCheckout" type="button">Consultar enlace de pago</button><a class="button hidden" id="officialCheckout" rel="noreferrer">Continuar al pago</a><a class="button-secondary hidden" id="sandboxPayments" href="/local/pagos">Revisar pago de prueba</a><a class="button" href="seguimiento.html">Consultar el estado</a><a class="button-secondary" href="index.html">Volver a la tienda</a></div></section></main><script src="sistema.js"></script><script src="estado-pedido.js"></script><script>
+(()=>{
+  const token=BYSG.query('token'),button=document.getElementById('recoverCheckout'),link=document.getElementById('officialCheckout'),message=document.getElementById('message');
+  if(!token)return;
+  BYSG.api('/api/health').then(health=>{
+    if(health.payment_mode==='mercado_pago'&&health.real_payments_enabled&&!health.sandbox)button.classList.remove('hidden');
+    if(health.payment_mode==='mercado_pago_prueba'&&health.sandbox){button.classList.remove('hidden');document.getElementById('sandboxPayments').classList.remove('hidden');}
+  }).catch(()=>{});
+  button.addEventListener('click',async()=>{
+    button.disabled=true;button.textContent='Consultando…';link.classList.add('hidden');
+    try{
+      const result=await BYSG.api('/api/checkout/recover',{method:'POST',body:JSON.stringify({public_token:token})});
+      if(result.checkout_url){link.href=result.checkout_url;link.classList.remove('hidden');BYSG.setMessage(message,'Mercado Pago confirmó el enlace para este pedido.','success');}
+      else if(result.provider_payment_status==='approved'){BYSG.setMessage(message,'Mercado Pago informa un pago de prueba aprobado. Revisalo en la pantalla privada antes de conciliarlo.','success');}
+      else if(result.payment_status==='approved'){BYSG.setMessage(message,'Mercado Pago confirmó el pago. Consultá el estado del pedido.','success');}
+      else if(result.payment_status==='rejected'){BYSG.setMessage(message,'Mercado Pago informó que el pago no se completó. Consultá el estado del pedido.');}
+      else BYSG.setMessage(message,'Todavía no hay un enlace de pago verificado. El pedido sigue pendiente; volvé a consultar más tarde.','success');
+    }catch(error){BYSG.setMessage(message,'No pudimos consultar el pago ahora. El pedido sigue pendiente; probá de nuevo más tarde.');}
+    finally{button.disabled=false;button.textContent='Consultar enlace de pago';}
+  });
+})();
+</script></body></html>

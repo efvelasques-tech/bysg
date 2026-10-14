@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Conectar pagos de prueba · BYSG</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#0b0c10;color:#f4f4f6}
+    *{box-sizing:border-box}body{margin:0}.shell{max-width:820px;margin:auto;padding:44px 24px}
+    header{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:44px}
+    .brand{font-weight:900;letter-spacing:2px;font-size:23px}.badge{font-size:12px;letter-spacing:1px;background:#292610;color:#f5dc68;border:1px solid #665925;border-radius:30px;padding:8px 12px}
+    .eyebrow{color:#d0b6ff;font-size:12px;font-weight:750;letter-spacing:2px}h1{font-size:clamp(27px,5vw,39px);letter-spacing:-1px;line-height:1.15;margin:12px 0 16px}
+    p{line-height:1.6;color:#bcbfc9;margin:0 0 20px}.card{border:1px solid #353742;border-radius:20px;background:#15161d;padding:28px;margin-top:24px}
+    .safe{border-left:3px solid #efdb65;background:#201f15;padding:16px 20px;border-radius:8px;line-height:1.5;font-size:14px;color:#eee9ce}
+    label{display:block;font-weight:700;font-size:15px;margin-bottom:10px}input{width:100%;padding:15px 16px;background:#0c0d12;border:1px solid #575967;border-radius:10px;color:white;font-size:16px;outline:none}
+    input:focus{border-color:#b999ff;box-shadow:0 0 0 3px #b999ff22}.help{font-size:13px;margin:9px 0 23px;color:#a4a7b3}
+    button,.button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:14px 20px;background:#e4ce5b;color:#111;cursor:pointer;text-decoration:none;display:inline-block;text-align:center}
+    button:disabled{opacity:.5;cursor:wait}.secondary{background:#2d303c;color:#eee}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}.field{margin-top:22px}
+    .status{border-radius:10px;padding:16px;margin:20px 0 0;background:#242633;line-height:1.5;font-size:14px}.status.ok{background:#143929;color:#c8f0d8}.status.error{background:#3b2024;color:#ffcbd0}
+    .hidden{display:none!important}ol{padding-left:24px;line-height:1.9;color:#bcbfc9}strong{color:#f4f4f6}footer{font-size:12px;color:#868b99;margin-top:28px;line-height:1.7}
+    #ids{font-size:12px;color:#9297a8;margin:18px 0 0}.step{font-size:13px;color:#d0b6ff;margin-bottom:15px}
+    @media(max-width:500px){.shell{padding:26px 18px}.card{padding:22px 18px}header{margin-bottom:32px}.badge{font-size:10px}.actions>*{width:100%}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header><div class="brand">BYSG</div><div class="badge">SOLO EN ESTA MAC · PRUEBA</div></header>
+    <div class="eyebrow">CONEXIÓN CON MERCADO PAGO</div>
+    <h1>Pagos de prueba, sin dinero real.</h1>
+    <p>La clave queda en la memoria de esta sesión. No se guarda en Google Drive, archivos, base de datos ni registros. Al detener el servidor, tendrás que cargarla nuevamente.</p>
+    <div class="safe">Usá <strong>Credenciales de prueba</strong> de la aplicación <strong>BYSG Tienda</strong>. No uses la clave de producción, tu contraseña personal ni los códigos de verificación.</div>
+    <section class="card">
+      <div class="step">PASO 1 · VERIFICAR LA CLAVE, SIN HACER COBROS</div>
+      <form id="connectionForm" autocomplete="off">
+        <label for="accessToken">Access Token de prueba</label>
+        <input id="accessToken" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="off" maxlength="520" required placeholder="Pegá aquí la clave privada de prueba">
+        <div class="help">Mercado Pago → BYSG Tienda → Credenciales de prueba → copiar Access Token. La clave permanece oculta y el campo se vacía al enviarla.</div>
+        <div class="field">
+          <label for="buyerEmail">Correo del comprador de prueba</label>
+          <input id="buyerEmail" type="email" autocomplete="off" spellcheck="false" required maxlength="160">
+          <div class="help">Solo admite @testuser.com. Está propuesto a partir del User ID del comprador; ajustalo únicamente si Mercado Pago muestra otro correo para esa cuenta de prueba.</div>
+        </div>
+        <button id="connectButton" type="submit">Verificar y conectar prueba</button>
+      </form>
+      <div id="status" class="status" role="status" aria-live="polite">Comprobando sesión local…</div>
+      <div id="ids"></div>
+      <div id="connectedActions" class="actions hidden">
+        <a class="button" href="/muestra-web/index.html" target="_blank" rel="noreferrer">Abrir tienda de prueba</a>
+        <button id="checkOrderButton" class="secondary" type="button">Comprobar pedido pendiente (sin cobrar)</button>
+        <button id="reconcileOrderButton" class="secondary" type="button">Conciliar pago aprobado (sin nuevo cobro)</button>
+        <button id="recoverCheckoutButton" class="secondary" type="button">Consultar enlace oficial del pedido</button>
+        <button id="disconnectButton" class="secondary" type="button">Olvidar clave de esta sesión</button>
+      </div>
+      <div id="orderCheckStatus" class="status hidden" role="status" aria-live="polite"></div>
+      <div id="reconcileStatus" class="status hidden" role="status" aria-live="polite"></div>
+      <div id="recoveryStatus" class="status hidden" role="status" aria-live="polite"></div>
+    </section>
+    <section class="card">
+      <div class="step">PASO 2 · SOLO DESPUÉS DE CONECTAR</div>
+      <ol>
+        <li>Elegí un producto en la tienda de prueba.</li>
+        <li>Completá el pedido con el <strong>comprador de prueba</strong>.</li>
+        <li>Pagá en Mercado Pago con una <strong>tarjeta de prueba</strong>, nunca con una real.</li>
+      </ol>
+      <p id="paymentInstructions" style="font-size:14px;margin-bottom:0">Los pedidos y cupos de ensayo están separados de la tienda. No se envían correos. Comprobando el estado de los avisos de pago…</p>
+    </section>
+    <section class="card">
+      <div class="step">PASO 3 · CONFIRMACIÓN AUTOMÁTICA DEL PEDIDO</div>
+      <p>El receptor de avisos está separado de la tienda y de esta pantalla privada. Habilitar su dirección HTTPS en Internet requiere autorización; no se publica automáticamente.</p>
+      <form id="notificationsForm" autocomplete="off">
+        <label for="webhookSecret">Clave secreta de los avisos de prueba</label>
+        <input id="webhookSecret" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="off" maxlength="256" required placeholder="Clave secreta de Webhooks, no Access Token">
+        <div class="help">Se genera al configurar Webhooks en Mercado Pago. Solo queda en memoria y el campo se vacía al enviarla. No compartas la clave en el chat.</div>
+        <button id="notificationsButton" type="submit" disabled>Preparar receptor de avisos</button>
+      </form>
+      <div id="notificationsStatus" class="status" role="status" aria-live="polite">Comprobando receptor de avisos…</div>
+    </section>
+    <footer>No compartas capturas con claves o contraseñas. Este entorno no habilita ventas reales ni publica la tienda.</footer>
+  </main>
+  <script nonce="{{CSRF}}">
+  (()=>{
+    const csrf='{{CSRF}}',form=document.getElementById('connectionForm'),token=document.getElementById('accessToken'),email=document.getElementById('buyerEmail'),status=document.getElementById('status'),button=document.getElementById('connectButton');
+    let connected=false;
+    async function api(path,payload){
+      const options=payload?{method:'POST',headers:{'Content-Type':'application/json','X-BYSG-CSRF':csrf},body:JSON.stringify(payload),cache:'no-store'}:{cache:'no-store'};
+      const response=await fetch(path,options),result=await response.json();
+      if(!response.ok){const error=new Error(result.error||'No se pudo completar la operación.');error.status=response.status;throw error;}
+      return result;
+    }
+    function clearRecovery(){const notice=document.getElementById('recoveryStatus');notice.replaceChildren();notice.className='status hidden';}
+    function safeCheckoutUrl(value){
+      if(typeof value!=='string')return false;
+      try{
+        const url=new URL(value);
+        return url.protocol==='https:'&&['www.mercadopago.com.ar','www.mercadopago.com'].includes(url.hostname)&&
+          !url.username&&!url.password&&!url.port&&!url.hash&&
+          (url.pathname==='/checkout'||url.pathname.startsWith('/checkout/'))&&
+          ![...url.searchParams.keys()].some(key=>['access_token','client_token'].includes(key.toLowerCase()));
+      }catch{return false;}
+    }
+    function render(data){
+      connected=data.connected;if(document.activeElement!==email)email.value=data.buyer_email;
+      document.getElementById('ids').textContent=`Vendedor de prueba: ${data.seller_id} · Comprador de prueba: ${data.buyer_id} · Argentina`;
+      document.getElementById('connectedActions').classList.toggle('hidden',!connected);
+      if(!connected){clearRecovery();document.getElementById('reconcileStatus').className='status hidden';}
+      status.className=connected?'status ok':'status';
+      status.textContent=connected?'Clave verificada y conectada para esta sesión. La confirmación de cada pago se verifica por separado.':'Falta cargar y verificar el Access Token de prueba.';
+      button.textContent=connected?'Reemplazar clave de prueba':'Verificar y conectar prueba';
+      document.getElementById('notificationsButton').disabled=!connected||!data.webhook_port;
+      const notice=document.getElementById('notificationsStatus');
+      const instructions=document.getElementById('paymentInstructions');
+      const isolation='Los pedidos y cupos de ensayo están separados de la tienda. No se envían correos. ';
+      instructions.textContent=isolation+(data.notifications_processed?'Avisos de pago verificados mediante un enlace temporal, activo solo mientras esta Mac y la conexión sigan funcionando. El regreso automático al sitio todavía no está configurado.':data.webhook_public_url?'El enlace temporal de avisos está habilitado, pero falta completar su verificación. El regreso automático al sitio todavía no está configurado.':'El regreso automático y los avisos de pago requieren una dirección pública HTTPS; todavía no están configurados.');
+      notice.className=data.notifications_processed?'status ok':'status';
+      if(data.notifications_processed){
+        const states={approved:'pagado',pending:'pendiente',rejected:'rechazado',refunded:'devuelto'};
+        notice.textContent=`Aviso verificado: pedido ${data.last_notification.order_number}, ${states[data.last_notification.payment_status]||'en revisión'}. No se usó dinero real.`;
+      }else{
+        notice.textContent=data.webhook_public_url?(data.webhook_receiver_ready?'Enlace temporal habilitado. Falta recibir y verificar un aviso de Mercado Pago.':'Enlace temporal habilitado; falta conectar las claves de prueba. No se aceptan avisos todavía.'):data.webhook_receiver_ready?'Receptor preparado en esta Mac. La dirección pública todavía debe conectarse y verificarse.':data.webhook_port?'Falta configurar la clave secreta y autorizar el enlace público de prueba.':'Receptor preparado en el programa, aún no iniciado en esta sesión. No se cambió tu conexión actual.';
+      }
+    }
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();button.disabled=true;
+      let privateToken=token.value.trim();token.value='';
+      document.getElementById('orderCheckStatus').classList.add('hidden');
+      document.getElementById('reconcileStatus').classList.add('hidden');
+      clearRecovery();
+      status.className='status';status.textContent='Verificando que la clave corresponda al vendedor de prueba…';
+      try{render(await api('/api/local/pagos/conectar',{access_token:privateToken,buyer_email:email.value.trim()}));}
+      catch(error){
+        document.getElementById('connectedActions').classList.add('hidden');
+        status.className='status error';status.textContent=error.message;
+      }finally{privateToken='';button.disabled=false;}
+    });
+    document.getElementById('disconnectButton').addEventListener('click',async()=>{
+      document.getElementById('orderCheckStatus').classList.add('hidden');
+      document.getElementById('reconcileStatus').classList.add('hidden');
+      clearRecovery();
+      try{render(await api('/api/local/pagos/desconectar',{}));}catch(error){status.className='status error';status.textContent=error.message;}
+    });
+    document.getElementById('checkOrderButton').addEventListener('click',async()=>{
+      const checkButton=document.getElementById('checkOrderButton'),notice=document.getElementById('orderCheckStatus');
+      checkButton.disabled=true;notice.className='status';notice.textContent='Consultando el pedido existente en Mercado Pago, sin hacer cobros ni cambiar la tienda…';
+      try{
+        const result=await api('/api/local/pagos/comprobar-pedido',{});
+        const states={approved:'aprobado',pending:'pendiente',rejected:'rechazado',refunded:'devuelto'};
+        notice.className=result.result==='verified'&&result.provider_payment_status==='approved'?'status ok':'status error';
+        const searchInfo=Number.isInteger(result.candidate_count)?`Búsqueda por referencia: ${result.candidate_count} resultado(s); ID ${result.id_match?'coincidente':'no confirmado'}. `:'';
+        notice.textContent=result.result==='verified'?`${searchInfo}Pedido ${result.order_number}: Mercado Pago lo informa como ${states[result.provider_payment_status]||'en revisión'}; en la tienda de prueba sigue pendiente. Esta comprobación no cambia su estado.`:`${searchInfo}${result.message}`;
+      }catch(error){notice.className='status error';notice.textContent=error.message;}
+      finally{checkButton.disabled=false;}
+    });
+    document.getElementById('reconcileOrderButton').addEventListener('click',async()=>{
+      const reconcileButton=document.getElementById('reconcileOrderButton'),notice=document.getElementById('reconcileStatus');
+      reconcileButton.disabled=true;notice.className='status';notice.textContent='Verificando otra vez el pago completo en Mercado Pago antes de actualizar el pedido de prueba…';
+      try{
+        const result=await api('/api/local/pagos/conciliar-pedido',{});
+        notice.className=result.result==='reconciled'?'status ok':'status error';
+        notice.textContent=result.result==='reconciled'?`Pedido ${result.order_number}: ${result.message}`:result.message;
+      }catch(error){notice.className='status error';notice.textContent=error.message;}
+      finally{reconcileButton.disabled=false;}
+    });
+    document.getElementById('recoverCheckoutButton').addEventListener('click',async()=>{
+      const recoveryButton=document.getElementById('recoverCheckoutButton'),notice=document.getElementById('recoveryStatus');
+      recoveryButton.disabled=true;clearRecovery();notice.className='status';notice.textContent='Consultando la order de prueba por ID…';
+      try{
+        const result=await api('/api/local/pagos/recuperar-checkout',{});
+        if(result.result==='checkout_available'&&safeCheckoutUrl(result.checkout_url)){
+          const link=document.createElement('a');link.href=result.checkout_url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=result.checkout_url;
+          notice.replaceChildren(link);notice.className='status ok';return;
+        }
+        const messages={missing_checkout_url:'La consulta por ID no devolvió un enlace oficial.',invalid_checkout_url:'El enlace devuelto no pasó la verificación de seguridad.',not_pending:'Mercado Pago ya no informa esta order como pendiente.',mismatch:'La order remota no coincide con el pedido de prueba.',not_authorized:'La clave no autorizó consultar esta order.',provider_unavailable:'No se pudo consultar la order de prueba por ID.'};
+        const safeCode=value=>typeof value==='string'&&/^[A-Za-z0-9_.-]{1,80}$/.test(value)?value:'no informado';
+        const details=[];
+        if('provider_order_status' in result)details.push(`Estado: ${safeCode(result.provider_order_status)}.`);
+        if('provider_status_detail' in result)details.push(`Detalle: ${safeCode(result.provider_status_detail)}.`);
+        if(typeof result.checkout_url_present==='boolean')details.push(`Enlace presente: ${result.checkout_url_present?'sí':'no'}.`);
+        if(result.app_id_match!==null&&typeof result.app_id_match==='boolean')details.push(`Aplicación: ${result.app_id_match?'coincide':'no coincide'}.`);
+        notice.className='status error';notice.textContent=[messages[result.result]||'No se obtuvo un enlace oficial verificable.',...details].join(' ');
+      }catch(error){notice.className='status error';notice.textContent=error.status===404?'La recuperación de enlaces no está disponible en esta sesión local.':error.message;}
+      finally{recoveryButton.disabled=false;}
+    });
+    document.getElementById('notificationsForm').addEventListener('submit',async event=>{
+      event.preventDefault();const input=document.getElementById('webhookSecret'),submit=document.getElementById('notificationsButton'),notice=document.getElementById('notificationsStatus');
+      let secret=input.value.trim();input.value='';submit.disabled=true;
+      try{render(await api('/api/local/pagos/avisos',{webhook_secret:secret}));}
+      catch(error){notice.className='status error';notice.textContent=error.message;}
+      finally{secret='';submit.disabled=!connected;}
+    });
+    window.addEventListener('pagehide',()=>{token.value='';document.getElementById('webhookSecret').value='';});
+    api('/api/local/pagos').then(render).catch(()=>{status.className='status error';status.textContent='No hay una sesión local activa. Pedí reiniciar la pantalla de prueba.';});
+    setInterval(()=>api('/api/local/pagos').then(render).catch(()=>{}),10000);
+  })();
+  </script>
+</body>
+</html>

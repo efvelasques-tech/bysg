@@ -1,0 +1,13 @@
+.env
+.DS_Store
+__pycache__/
+*.pyc
+*.log
+data/
+backups/
+capturas/
+outputs/
+assets/catalogo/
+assets/referencias/
+assets/productos/hover/_revision-laterales.jpg
+PREVENTA-BYSG.md

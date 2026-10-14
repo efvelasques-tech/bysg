@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pago de prueba · BYSG</title><link rel="stylesheet" href="sistema.css"></head>
+<body>
+  <header class="topbar"><div class="shell"><a class="brand" href="index.html"><img src="assets/branding/gato-logo.png" alt="Logo BYSG"><span>BAUTI Y SUS GATOS<small>CHECKOUT PRO · SIMULACIÓN</small></span></a><span class="status-pill pending">No es un cobro real</span></div></header>
+  <main class="shell">
+    <section class="card status-hero">
+      <div class="status-icon pending">MP</div>
+      <div class="eyebrow">ENTORNO DE PRUEBA</div>
+      <h1>Simulador de pago</h1>
+      <p class="lead" style="margin-inline:auto">Elegí un resultado para probar cómo reacciona el pedido, el stock y el panel de administración.</p>
+      <div id="message" class="notice danger hidden"></div>
+      <div id="orderSummary" class="card compact section" style="text-align:left"></div>
+      <div class="top-actions section" style="justify-content:center">
+        <button class="button" data-status="approved">Simular pago aprobado</button>
+        <button class="button-secondary" data-status="pending">Dejar pago pendiente</button>
+        <button class="button-danger" data-status="rejected">Simular pago rechazado</button>
+      </div>
+    </section>
+  </main>
+  <script src="sistema.js"></script>
+  <script>
+  (()=>{
+    const {api,money,query,escapeHtml,setMessage}=BYSG,token=query('token'),message=document.getElementById('message');let order;
+    async function load(){try{order=await api(`/api/orders/${encodeURIComponent(token)}`);document.getElementById('orderSummary').innerHTML=`<strong>${escapeHtml(order.order_number)}</strong><p>${order.items.map(item=>`${escapeHtml(item.title)} × ${item.quantity}`).join('<br>')}</p><div class="total-row grand"><span>Total de prueba</span><span>${money(order.total_cents)}</span></div>`}catch(error){setMessage(message,error.message)}}
+    document.querySelectorAll('[data-status]').forEach(button=>button.addEventListener('click',async()=>{if(!order)return;document.querySelectorAll('button').forEach(item=>item.disabled=true);try{const status=button.dataset.status;await api('/api/mock/payments',{method:'POST',body:JSON.stringify({public_token:token,status})});const target={approved:'pago-aprobado.html',pending:'pago-pendiente.html',rejected:'pago-rechazado.html'}[status];location.href=`${target}?token=${encodeURIComponent(token)}`}catch(error){setMessage(message,error.message);document.querySelectorAll('button').forEach(item=>item.disabled=false)}}));load();
+  })();
+  </script>
+</body></html>
+
